@@ -19,6 +19,30 @@ with open(settings.BASE_DIR+'/Whimh_model.dkl','rb') as input:
 cascPath = settings.BASE_DIR+"/haarcascade_frontalface_default.xml"
 faceCascade = cv2.CascadeClassifier(cascPath)
 
+
+import tensorflow as tf
+sess = tf.InteractiveSession()
+graph = tf.get_default_graph()
+
+with open(settings.BASE_DIR+"/vggface16.tfmodel", mode='rb') as f:
+  fileContent = f.read()
+
+graph_def = tf.GraphDef()
+graph_def.ParseFromString(fileContent)
+x_tf = tf.placeholder(tf.float32, shape=[None, 32,32,3],name="raw_images_mh")
+x_tf_1=tf.image.resize_images(x_tf,224,224)
+y_tf = tf.placeholder(tf.int32, shape=[None,],name="turth_y_mh")
+feature_x=tf.import_graph_def(graph_def,name='vggface', input_map={ "images": x_tf_1 },return_elements=["pool5:0"])
+print "graph loaded from disk"
+
+newsaver=tf.train.import_meta_graph(settings.BASE_DIR+'/PretensorWhimh.ckpt.meta')
+newsaver.restore(sess,'PretensorWhimh.ckpt')
+graph = tf.get_default_graph()
+pool5=graph.get_tensor_by_name("feature_x:0")
+results=graph.get_tensor_by_name("fintune_whimh/measure/predict/ArgMax:0")
+
+
+
 @csrf_exempt
 def detect(request):
 	# initialize the data dictionary to be returned by the request
@@ -79,6 +103,7 @@ def _grab_image(path=None, stream=None, url=None):
 			minSize=(30, 30),
 			flags = cv2.cv.CV_HAAR_SCALE_IMAGE
 		)
+		count=0
 		print "Found {0} faces!".format(len(faces))
 		if(len(faces)>0):
 			frames = np.empty((len(faces), 32,32, 3))
@@ -91,7 +116,7 @@ def _grab_image(path=None, stream=None, url=None):
 			print frames.shape
 			frames2=frames[:,:,:,[2,1,0]]
 			k=0
-			records= _predictor_(frames2)
+			records= _predictor_tensor(frames2)
 			print "minhan is:"
 			print  records
 			for (x,y,w,h) in faces:
@@ -113,3 +138,9 @@ def _predictor_(x_train):
 	x_train=x_train_temp
 	test_result=model.loss(x_train)
 	return np.argmax(test_result, axis=1)
+
+def _predictor_tensor(x_train):
+	print "there are "+ str(x_train.shape[0]) + " face to predict"
+	pool_x=sess.run(feature_x, feed_dict={x_tf:x_train})[0]
+	test_result=sess.run(results, feed_dict={pool5:pool_x})
+	return test_result

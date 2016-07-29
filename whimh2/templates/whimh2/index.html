@@ -1,12 +1,14 @@
 <!DOCTYPE html>
+{% load staticfiles %}
 <html>
     <head>
         <meta charset="utf-8">
-        <title>Minimal Django File Upload Example</title>
+        <title>WHere Is Min-Han</title>
     </head>
+    <link rel="stylesheet" type="text/css" href="{% static 'style.css' %}" />
 
     <body>
-		{% load staticfiles %}
+		
 		{% with 'whimh2/'|add:imgid|add:'.jpg' as image_static %}
 		<img src="{% static image_static %}" alt="My image"/>
 		{% endwith %}
