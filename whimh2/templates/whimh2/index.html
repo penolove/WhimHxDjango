@@ -13,7 +13,11 @@
 		<img src="{% static image_static %}" alt="My image"/>
 		{% endwith %}
 
+        {% if metx == "cnn" %}
         <form action="{% url "whimh2:detect" %}" method="post" enctype="multipart/form-data">
+        {% else %}
+        <form action="{% url "whimh2:tensor" %}" method="post" enctype="multipart/form-data">
+        {% endif %}
             {% csrf_token %}
             <p>{{ form.non_field_errors }}</p>
 
@@ -25,6 +29,7 @@
             </p>
             <p><input type="submit" value="Upload"/></p>
         </form>
+
     </body>
 
 </html>

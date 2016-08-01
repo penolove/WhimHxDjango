@@ -22,42 +22,47 @@ faceCascade = cv2.CascadeClassifier(cascPath)
 
 import tensorflow as tf
 sess = tf.InteractiveSession()
-graph = tf.get_default_graph()
-
-with open(settings.BASE_DIR+"/vggface16.tfmodel", mode='rb') as f:
-  fileContent = f.read()
-
-graph_def = tf.GraphDef()
-graph_def.ParseFromString(fileContent)
 x_tf = tf.placeholder(tf.float32, shape=[None, 32,32,3],name="raw_images_mh")
 x_tf_1=tf.image.resize_images(x_tf,224,224)
-y_tf = tf.placeholder(tf.int32, shape=[None,],name="turth_y_mh")
-feature_x=tf.import_graph_def(graph_def,name='vggface', input_map={ "images": x_tf_1 },return_elements=["pool5:0"])
-print "graph loaded from disk"
 
-newsaver=tf.train.import_meta_graph(settings.BASE_DIR+'/PretensorWhimh.ckpt.meta')
-newsaver.restore(sess,'PretensorWhimh.ckpt')
-graph = tf.get_default_graph()
-pool5=graph.get_tensor_by_name("feature_x:0")
-results=graph.get_tensor_by_name("fintune_whimh/measure/predict/ArgMax:0")
+#load whihm model
+with open(settings.BASE_DIR+"/pretensorWhimh.pb", mode='rb') as f:
+  fileContent = f.read()
+
+gdef_1 = tf.GraphDef()
+gdef_1.ParseFromString(fileContent)
+print 'whimh loaded'
+#load vgg face
+with open(settings.BASE_DIR+"/vggface16.tfmodel", mode='rb') as f:
+  fileContent = f.read()
+gdef_2 = tf.GraphDef()
+gdef_2.ParseFromString(fileContent)
+print 'vggface loaded'
 
 
+with tf.Graph().as_default() as g_combined:
+  feature_x=tf.import_graph_def(gdef_2, input_map={ "images": x_tf_1 },return_elements=["pool5:0"])
+  #feature
+  results=tf.import_graph_def(gdef_1, input_map={ "feature_x:0": feature_x[0]},return_elements=["fintune_whimh/measure/predict/predictions_:0"])
 
 @csrf_exempt
-def detect(request):
+def detect(request,metx='cnn'):
 	# initialize the data dictionary to be returned by the request
 	data = {"success": False}
  	count='0'
  	form = DocumentForm() 
-
+ 	print metx
 	# check to see if this is a post request
 	if request.method == "POST":
 		# check to see if an image was uploaded
 		if request.FILES.get("docfile", None) is not None:
 			# grab the uploaded image
-			count = _grab_image(stream=request.FILES["docfile"])
+			if metx!='cnn':
+				count = _grab_image(stream=request.FILES["docfile"],metx=metx)
+			else:
+				count = _grab_image(stream=request.FILES["docfile"])
 			print "streams,streams,streams,streams"
-			return render(request, 'whimh2/index.html',{'imgid':str(count), 'form': form})
+			return render(request, 'whimh2/index.html',{'imgid':str(count), 'form': form ,'metx':metx})
 		# otherwise, assume that a URL was passed in
 		else:
 			# grab the URL from the request
@@ -66,16 +71,19 @@ def detect(request):
 			# if the URL is None, then return an error
 			if url is None:
 				data["error"] = "No URL provided."
-				return render(request, 'whimh2/index.html',{'imgid':str(count), 'form': form})
+				return render(request, 'whimh2/index.html',{'imgid':str(count), 'form': form,'metx':metx})
  			print "urls"
 			# load the image and convert	
-			count = _grab_image(url=url)
-			return render(request, 'whimh2/index.html',{'imgid':str(count), 'form': form})
+			if metx!='cnn':
+				count = _grab_image(stream=request.FILES["docfile"],metx=metx)
+			else:
+				count = _grab_image(stream=request.FILES["docfile"])
+			return render(request, 'whimh2/index.html',{'imgid':str(count), 'form': form,'metx':metx})
 		
 	print "not post not post not post not post not post"
-	return render(request, 'whimh2/index.html',{'imgid':str(count), 'form': form})
+	return render(request, 'whimh2/index.html',{'imgid':str(count), 'form': form,'metx':metx})
  
-def _grab_image(path=None, stream=None, url=None):
+def _grab_image(path=None, stream=None, url=None,metx='cnn'):
 	# if the path is not None, then load the image from disk
 	if path is not None:
 		image = cv2.imread(path)
@@ -116,7 +124,10 @@ def _grab_image(path=None, stream=None, url=None):
 			print frames.shape
 			frames2=frames[:,:,:,[2,1,0]]
 			k=0
-			records= _predictor_tensor(frames2)
+			if metx!='cnn':
+				records= _predictor_tensor(frames2)
+			else:
+				records= _predictor_(frames2)
 			print "minhan is:"
 			print  records
 			for (x,y,w,h) in faces:
@@ -141,6 +152,7 @@ def _predictor_(x_train):
 
 def _predictor_tensor(x_train):
 	print "there are "+ str(x_train.shape[0]) + " face to predict"
-	pool_x=sess.run(feature_x, feed_dict={x_tf:x_train})[0]
-	test_result=sess.run(results, feed_dict={pool5:pool_x})
-	return test_result
+
+	test_result=sess.run(results, feed_dict={x_tf:x_train})
+	print test_result
+	return test_result[0]
