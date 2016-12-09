@@ -25,12 +25,13 @@ SECRET_KEY = 'tt9s#@)u(m1p5p&esjqoujf!jrc@t4*z8betj@6)*ox8n%(in('
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['140.113.179.7','192.168.254.105']
 
 
 # Application definition
 
 INSTALLED_APPS = [
+    'FoodBoard.apps.FoodboardConfig',
     'whimh2.apps.Whimh2Config',
     'polls.apps.PollsConfig',
     'django.contrib.admin',
